@@ -1,0 +1,2 @@
+# ignore fasl files
+*.fasl
