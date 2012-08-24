@@ -18,12 +18,28 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
+
+;; Should really turn this into an .asd
+;;
 (eval-when (:compile-toplevel :load-toplevel :execute)
-  (require 'hunchentoot)
-  (require 'cl-who)
-  (require 'cl-markdown)
-  (require 'metabang-bind)
-  (require 'cl-ppcre))
+  #+sbcl
+  (progn
+    (require 'hunchentoot)
+    (require 'cl-who)
+    (require 'cl-markdown)
+    (require 'metabang-bind)
+    (require 'cl-ppcre))
+  #+allegro
+  (mapc #'(lambda (system)
+            #+allegro
+            (asdf:oos 'asdf:load-op system)
+            #+sbcl
+            (require system))
+        '(hunchentoot
+          cl-who
+          cl-markdown
+          metabang-bind
+          cl-ppcre)))
 
 
 ;;;; Setup
