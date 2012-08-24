@@ -59,6 +59,8 @@
   (pushnew 'page-dispatcher hunchentoot:*dispatch-table*)
   (setq *nestor-acceptor* (make-instance 'hunchentoot:easy-acceptor
                                          :port 9494))
+  (setf (cl-who:html-mode) :sgml)
+
   (hunchentoot:start *nestor-acceptor*))
 
 (defun stop ()
