@@ -44,7 +44,8 @@
 
 ;;;; Setup
 ;;;;
-(defpackage :nestor (:use :cl)
+(defpackage :nestor (:use :cl
+                          :nestor-layout)
             (:export #:start))
 (in-package :nestor)
 
@@ -142,6 +143,11 @@
 
 (defgeneric render-page (page type)
   (:documentation "Return a string rendering PAGE of TYPE")
+  (:method :around (page type)
+    (declare (ignore type))
+    (funcall (or (find-layout (layout page))
+                 *layout*)
+             (call-next-method)))
   (:method (page (type (eql :mdown)))
     (cl-markdown:render-to-stream (cl-markdown:markdown (content page)) :html nil))
   (:method (page (type (eql :who)))
@@ -164,3 +170,69 @@
                                                   (string type))))))
             return (lambda ()
                      (funcall #'render-page (page-from-file file) type)))))
+
+
+;;;; Layout engine
+;;;;
+(defpackage :nestor-layout (:use :cl :cl-who)
+  (:export #:*layout*
+           #:find-layout
+           #:*javascripts*
+           #:*stylesheets*))
+(in-package :nestor-layout)
+
+(defvar *layout* #'default-layout
+  "Value should be a function taking a string and returning another string.")
+
+(defvar *javascripts* '()
+  "List of strings with script locations")
+
+(defvar *stylesheets* '()
+  "List of strings with stylesheet locations")
+
+(defpackage :nestor-custom
+  (:documentation "Holds functions created with DEFLAYOUT and DEFSTYLE"))
+
+(defmacro deflayout (name varlist &body body)
+  (assert (or (not (second varlist))
+              (eq (second varlist) '&key))
+          nil "You must use DEFLAYOUT with a regular arg and optional KEYWORDS args.")
+  `(defun ,(intern name :nestor-custom) ,(append varlist
+                                          '(&allow-other-keys))
+     ,@body))
+
+(defun find-layout (name)
+  (with-package-iterator (next (find-package :nestor-custom) :external :internal)
+    (loop (multiple-value-bind (morep sym) (next)
+            (format t "looking at ~a" sym)
+            (cond ((not morep) (return))
+                  ((string= name
+                            (format nil "~(~a~)" sym))
+                   (return sym)))))))
+
+(defun default-layout (content &key header footer nav)
+  "Render the string HTML in the default layout."
+  (declare (ignore nav))
+  (cl-who:with-html-output-to-string (s nil :prologue t :indent t)
+    (:html
+     (:head
+      (loop for script in *javascripts*
+            do (htm (:script :src script :type "text/javascript")))
+      (loop for script in *stylesheets*
+            do (htm (:link :href script :media "screen" :real "stylesheet" :type "text/css")))
+      (:body
+       (:div :id "container"
+             (:div :id "header" (str header))
+             (:div :id "content" (str content))
+             (:div :id "footer" (str footer))))))))
+
+(deflayout plain (content &key header)
+  "Just a test DEFLAYOUT."
+  (declare (ignore header))
+  (cl-who:with-html-output-to-string (s nil :prologue t :indent t)
+    (:html
+     (:head
+      (:body
+       (str content)
+       (:br)
+       (:em "A very plain layout, by the way"))))))
