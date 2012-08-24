@@ -1,4 +1,4 @@
-;;; nestor.lisp --- File-based blogging, cloning the excellent github.com/gma/nesta
+;;; nestor.lisp --- File-based blogging, a clone of the excellent ruby Nesta
 
 ;;; Copyright (C) 2012 Joao Tavora
 
