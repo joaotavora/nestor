@@ -197,7 +197,7 @@
   (assert (or (not (second varlist))
               (eq (second varlist) '&key))
           nil "You must use DEFLAYOUT with a regular arg and optional KEYWORDS args.")
-  `(defun ,(intern name :nestor-custom) ,(append varlist
+  `(defun ,(intern (symbol-name name) :nestor-custom) ,(append varlist
                                           '(&allow-other-keys))
      ,@body))
 
