@@ -92,7 +92,7 @@
    (template    :initarg :template    :accessor template   :id "Template")
    ;; and finally
    ;;
-   (content     :initarg :content     :accessor page-content))
+   (content     :initarg :content     :accessor content))
   (:documentation "A page, in all it's fieldy glory"))
 
 (defclass* category (page)
@@ -124,7 +124,7 @@
 (defgeneric render-page (page type)
   (:documentation "Return a string rendering PAGE of TYPE")
   (:method (page (type (eql :mdown)))
-    (cl-markdown:render-to-stream (cl-markdown:markdown (page-content page)) :html nil)))
+    (cl-markdown:render-to-stream (cl-markdown:markdown (content page)) :html nil)))
 
 (defun page-dispatcher (request)
   (let (file)
