@@ -18,37 +18,7 @@
 ;;; You should have received a copy of the GNU General Public License
 ;;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 
-
-;; Should really turn this into an .asd
-;;
-(eval-when (:compile-toplevel :load-toplevel :execute)
-  #+sbcl
-  (progn
-    (require 'hunchentoot)
-    (require 'cl-who)
-    (require 'cl-markdown)
-    (require 'metabang-bind)
-    (require 'cl-ppcre))
-  #+allegro
-  (mapc #'(lambda (system)
-            #+allegro
-            (asdf:oos 'asdf:load-op system)
-            #+sbcl
-            (require system))
-        '(hunchentoot
-          cl-who
-          cl-markdown
-          metabang-bind
-          cl-ppcre)))
-
-
-;;;; Setup
-;;;;
-(defpackage :nestor (:use :cl
-                          :nestor-layout)
-            (:export #:start))
 (in-package :nestor)
-
 
 
 ;;;; Server start/stop-control
@@ -174,14 +144,9 @@
 
 ;;;; Layout engine
 ;;;;
-(defpackage :nestor-layout (:use :cl :cl-who)
-  (:export #:*layout*
-           #:find-layout
-           #:*javascripts*
-           #:*stylesheets*))
 (in-package :nestor-layout)
 
-(defvar *layout* #'default-layout
+(defvar *layout* 'default-layout
   "Value should be a function taking a string and returning another string.")
 
 (defvar *javascripts* '()
