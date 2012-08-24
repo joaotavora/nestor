@@ -40,6 +40,7 @@
                                          :port 9494))
 
 (defun start ()
+  (pushnew 'page-dispatcher hunchentoot:*dispatch-table*)
   (setq *nestor-acceptor* (make-instance 'hunchentoot:easy-acceptor
                                          :port 9494))
   (hunchentoot:start *nestor-acceptor*))
@@ -145,5 +146,3 @@
                                                   (string type))))))
             return (lambda ()
                      (funcall #'render-page (page-from-file file) type)))))
-
-(push 'page-dispatcher hunchentoot:*dispatch-table*)
