@@ -127,7 +127,7 @@
       (apply #'make-instance 'page :content content
              (mapcan #'(lambda (line)
                          (destructuring-bind (key value)
-                             (cl-ppcre:split ":" line :limit 2)
+                             (cl-ppcre:split "[ \t]*:[ \t]*" line :limit 2)
                            (let ((initarg (gethash key *metadata-ids*)))
                              (if initarg
                                  (list initarg value)
