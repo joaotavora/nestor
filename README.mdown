@@ -1,0 +1,8 @@
+# Nestor, a Lisp clone of nesta
+
+It doesn't do much yet, but if you have SBCL and quicklisp you can probably just
+
+    CL-USER> (load "nestor.lisp")
+    CL-USER> (nestor:start)
+
+It should start serving some markdown pages from the `content-demo` dir on port 9449.
