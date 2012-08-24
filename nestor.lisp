@@ -124,7 +124,10 @@
 (defgeneric render-page (page type)
   (:documentation "Return a string rendering PAGE of TYPE")
   (:method (page (type (eql :mdown)))
-    (cl-markdown:render-to-stream (cl-markdown:markdown (content page)) :html nil)))
+    (cl-markdown:render-to-stream (cl-markdown:markdown (content page)) :html nil))
+  (:method (page (type (eql :who)))
+    (with-output-to-string (bla)
+      (eval (cl-who::tree-to-commands (read-from-string (content page)) bla)))))
 
 (defun page-dispatcher (request)
   (let (file)
@@ -135,7 +138,7 @@
                                          (pathname
                                           (format nil "~a.~(~a~)"
                                                   (hunchentoot:request-uri request)
-                                                  (string :mdown))))))
+                                                  (string type))))))
             return (lambda ()
                      (funcall #'render-page (page-from-file file) type)))))
 
