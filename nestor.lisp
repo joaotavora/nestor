@@ -1,53 +1,123 @@
-(require 'hunchentoot)
-(require 'cl-who)
-(require 'cl-markdown)
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (require 'hunchentoot)
+  (require 'cl-who)
+  (require 'cl-markdown)
+  (require 'metabang-bind)
+  (require 'cl-ppcre))
 
-(in-package :hunchentoot)
-(defvar *last-request* nil)
-(export (intern "*LAST-REQUEST*" :hunchentoot) :hunchentoot)
-
-
-(defpackage :nestor (:use :cl))
+
+;;;; Setup
+;;;;
+(defpackage :nestor (:use :cl)
+            (:export #:start))
 (in-package :nestor)
 
-(defvar *nestor-acceptor*)
+
+
+;;;; Server start/stop-control
+;;;;
+(defvar *nestor-acceptor* (make-instance 'hunchentoot:easy-acceptor
+                                         :port 9494))
 
 (defun start ()
   (setq *nestor-acceptor* (make-instance 'hunchentoot:easy-acceptor
-                                  :port 4242))
+                                         :port 9494))
   (hunchentoot:start *nestor-acceptor*))
 
 (defun stop ()
   (hunchentoot:stop *nestor-acceptor*))
 
-(defvar *nestor-content-root* *default-pathname-defaults*)
-
+
+;;;; Pathname/config management
+;;;;
 (defvar *nestor-lisp-file* (load-time-value
                             (or #.*compile-file-pathname* *load-pathname*)))
 
-(defvar *page-to-serve* nil)
-(defun find-page-to-serve (request)
-  (let ((found (some #'(lambda (desc)
-                         (let ((probe (probe-file (make-pathname :directory (pathname-directory *nestor-content-root*)
-                                                                 :name (hunchentoot:request-uri request)
-                                                                 :type (car desc)))))1
-                           (format t "~&proble is ~A~%" probe)
-                           (when probe
-                             (list probe (cdr desc)))))
-                     `(("mdown" . ,#'(lambda (file)
-                                       (multiple-value-bind (doc string)
-                                           (cl-markdown:markdown file
-                                                                 :stream nil)
-                                         (declare (ignore doc))
-                                         string)))))))
-    (setq *page-to-serve* found)))
+(defparameter *content-root* (merge-pathnames (pathname "content-demo/")
+                                                     (make-pathname :directory
+                                                                    (pathname-directory *nestor-lisp-file*))))
 
-(hunchentoot:define-easy-handler (say-yo :uri #'find-page-to-serve)
-    ((name)
-     (shit))
-  (declare (ignore name) (ignore shit))
-  (funcall (second *page-to-serve*)
-           (first *page-to-serve*)))
+(defun pages-directory ()
+  (merge-pathnames (pathname "pages/")
+                   *content-root*))
 
-(when nil
-  (setq hunchentoot:*dispatch-table* '(hunchentoot:dispatch-easy-handlers)))
+
+;;;; Handling of page requests
+;;;;
+(eval-when (:compile-toplevel :load-toplevel :execute)
+  (defvar *metadata-ids* (make-hash-table :test #'equal)
+    "A hashtable of strings to metadata initarg keywords"))
+
+(defmacro defclass* (name direct-superclasses direct-slots &rest options)
+  "Also consider :ID options in slots, for adding to *METADATA-IDS*"
+  `(defclass ,name ,direct-superclasses
+     (,@(mapcar #'(lambda (slot)
+                    (setf (gethash (getf (cdr slot) :id) *metadata-ids*)
+                          (getf (cdr slot) :initarg))
+                    (remf (cdr slot) :id)
+                    slot)
+                direct-slots))
+     ,@options))
+
+(defclass* page ()
+  ((categories  :initarg :categories  :accessor categories :id "Categories")
+   (summary     :initarg :summary     :accessor summary    :id "Summary")
+   (description :initarg :description :accessor read-more  :id "Description")
+   (read-more   :initarg :read-more   :accessor read-more  :id "Read more")
+   (date        :initarg :date        :accessor date       :id "Date")
+   (atom-id     :initarg :atom-id     :accessor atom-id    :id "Atom ID")
+   (flags       :initarg :flags       :accessor flags      :id "Flags")
+   (keywords    :initarg :keywords    :accessor keywords   :id "Keywords")
+   (layout      :initarg :layout      :accessor layout     :id "Layout")
+   (template    :initarg :template    :accessor template   :id "Template")
+   ;; and finally
+   ;;
+   (content     :initarg :content     :accessor page-content))
+  (:documentation "A page, in all it's fieldy glory"))
+
+(defclass* category (page)
+  ((name :initarg :name :accessor :category-name)
+   (articles-heading :initarg :articles-heading :accessor :category-articles-heading))
+  (:documentation "TODO: does this make any sense??? categories are pages??? almost, right? or completely?"))
+
+(defun page-from-string (string)
+  (destructuring-bind (content &optional metadata-hunk)
+      (reverse (cl-ppcre:split "\\n\\n"
+                               string :limit 2))
+    (let ((metadata (cl-ppcre:split "\\n" metadata-hunk)))
+      (apply #'make-instance 'page :content content
+             (mapcan #'(lambda (line)
+                         (destructuring-bind (key value)
+                             (cl-ppcre:split ":" line :limit 2)
+                           (let ((initarg (gethash key *metadata-ids*)))
+                             (if initarg
+                                 (list initarg value)
+                                 (warn "Metadata key ~a has no initarg" key)))))
+                     metadata)))))
+
+(defun page-from-file (file)
+  (page-from-string (with-open-file (stream file)
+                      (let ((data (make-string (file-length stream))))
+                        (read-sequence data stream)
+                        data))))
+
+(defgeneric render-page (page type)
+  (:documentation "Return a string rendering PAGE of TYPE")
+  (:method (page (type (eql :mdown)))
+    (cl-markdown:render-to-stream (cl-markdown:markdown (page-content page)) :html nil)))
+
+
+(defun page-dispatcher (request)
+  (let (file)
+    (loop for type in '(:mdown :who)
+          when (setq file
+                     (probe-file
+                      (metatilities:relative-pathname (pages-directory)
+                                         (pathname
+                                          (format nil "~a.~(~a~)"
+                                                  (hunchentoot:request-uri request)
+                                                  (string :mdown))))))
+            return (lambda ()
+                     (funcall #'render-page (page-from-file file) type)))))
+
+(push 'page-dispatcher hunchentoot:*dispatch-table*)
