@@ -166,7 +166,6 @@
 (defun find-layout (name)
   (with-package-iterator (next (find-package :nestor-custom) :external :internal)
     (loop (multiple-value-bind (morep sym) (next)
-            (format t "looking at ~a" sym)
             (cond ((not morep) (return))
                   ((string= name
                             (format nil "~(~a~)" sym))
