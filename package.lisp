@@ -19,12 +19,13 @@
 ;;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 (in-package :cl-user)
 
-(defpackage :nestor-layout (:use :cl :cl-who)
+(defpackage :nestor-view (:use :cl :cl-who)
   (:export #:*layout*
-           #:find-layout
+           #:find-view
+           #:css-dispatcher
            #:*javascripts*
            #:*stylesheets*))
 
 (defpackage :nestor (:use :cl
-                          #:nestor-layout)
+                          #:nestor-view)
             (:export #:start))

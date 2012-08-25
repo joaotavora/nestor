@@ -33,4 +33,5 @@ for diagnostic output.")
                :metabang-bind
                :cl-ppcre)
   :components ((:file "package")
-               (:file "nestor")))
+               (:file "nestor")
+               (:file "styles")))

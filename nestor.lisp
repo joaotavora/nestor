@@ -28,7 +28,8 @@
 
 (defun start ()
   (setf (cl-who:html-mode) :sgml)
-  (pushnew 'page-dispatcher hunchentoot:*dispatch-table*)
+  (setq hunchentoot:*dispatch-table* (list 'nestor-view:css-dispatcher
+                                           'page-dispatcher))
   (hunchentoot:start *nestor-acceptor*))
 
 (defun stop ()
@@ -112,8 +113,8 @@
   (:documentation "Return a string rendering PAGE of TYPE")
   (:method :around (page type)
     (declare (ignore type))
-    (funcall (or (find-layout (layout page))
-                 *layout*)
+    (funcall (find-view (or (layout page)
+                            "master") :nestor-layouts)
              (call-next-method)))
   (:method (page (type (eql :mdown)))
     (multiple-value-bind (document string)
@@ -134,69 +135,87 @@
           when (setq file
                      (probe-file
                       (metatilities:relative-pathname (pages-directory)
-                                         (pathname
-                                          (format nil "~a.~(~a~)"
-                                                  (hunchentoot:request-uri request)
-                                                  (string type))))))
+                                                      (pathname
+                                                       (format nil "~a.~(~a~)"
+                                                               (hunchentoot:request-uri request)
+                                                               (string type))))))
             return (lambda ()
                      (funcall #'render-page (page-from-file file) type)))))
 
 
 ;;;; Layout engine
 ;;;;
-(in-package :nestor-layout)
+(in-package :nestor-view)
 
 (defvar *layout* 'default-layout
   "Value should be a function taking a string and returning another string.")
 
-(defvar *javascripts* '()
-  "List of strings with script locations")
+(defpackage :nestor-layouts
+  (:documentation "Holds functions created with DEFLAYOUT"))
+(defpackage :nestor-styles
+  (:documentation "Holds functions created with DEFSTYLE"))
 
-(defvar *stylesheets* '()
-  "List of strings with stylesheet locations")
+(defun css-dispatcher (request)
+  (cl-ppcre:register-groups-bind (name) ("/css/([^ ]+)\\.css" (hunchentoot:request-uri request))
+    (let ((style (find-view name :nestor-styles)))
+      (when style
+        (lambda ()
+          (funcall #'render-css style))))))
 
-(defpackage :nestor-custom
-  (:documentation "Holds functions created with DEFLAYOUT and DEFSTYLE"))
+(defun render-css (style)
+  ;; should later:
+  ;;
+  ;;  check the mtime of /public/css/STYLE-NAME.css
+  ;;  check the mtime of STYLE's fdefinition
+  ;;  check the mtime of /views/STYLE-NAME.clss
+  ;;  check the mtime of /views/theme/STYLE-NAME.clss
+  ;;  check the mtime of (getf (gethash STYLE *css-render-cache*) :mtime)
+  ;;
+  ;; do something incredibly smart with these
+  (setf (hunchentoot:content-type*) "text/css")
+  (funcall style))
+
+(defmacro defstyle (name-or-name-and-options &body body)
+  `(defun ,(intern (symbol-name (first (alexandria::ensure-list name-or-name-and-options)))
+                   :nestor-styles)
+       ;; style-functions take no arguments
+       ()
+     ,@body))
 
 (defmacro deflayout (name varlist &body body)
   (assert (or (not (second varlist))
               (eq (second varlist) '&key))
           nil "You must use DEFLAYOUT with a regular arg and optional KEYWORDS args.")
-  `(defun ,(intern (symbol-name name) :nestor-custom) ,(append varlist
-                                          '(&allow-other-keys))
+  `(defun ,(intern (symbol-name name) :nestor-layouts) ,(append varlist
+                                                         '(&allow-other-keys))
      ,@body))
 
-(defun find-layout (name)
-  (with-package-iterator (next (find-package :nestor-custom) :external :internal)
+(defun find-view (name package)
+  (with-package-iterator (next (find-package package) :external :internal)
     (loop (multiple-value-bind (morep sym) (next)
             (cond ((not morep) (return))
                   ((string= name
                             (format nil "~(~a~)" sym))
                    (return sym)))))))
 
-(defun default-layout (content &key header footer nav)
-  "Render the string HTML in the default layout."
-  (declare (ignore nav))
-  (cl-who:with-html-output-to-string (s nil :prologue t :indent t)
-    (:html
-     (:head
-      (loop for script in *javascripts*
-            do (htm (:script :src script :type "text/javascript")))
-      (loop for script in *stylesheets*
-            do (htm (:link :href script :media "screen" :real "stylesheet" :type "text/css")))
-      (:body
-       (:div :id "container"
-             (:div :id "header" (str header))
-             (:div :id "content" (str content))
-             (:div :id "footer" (str footer))))))))
+(defun css-rules-to-string (rules)
+  "Return a CSS string for RULES.
 
-(deflayout plain (content &key header)
-  "Just a test DEFLAYOUT."
-  (declare (ignore header))
-  (cl-who:with-html-output-to-string (s nil :prologue t :indent t)
-    (:html
-     (:head
-      (:body
-       (str content)
-       (:br)
-       (:em "A very plain layout, by the way"))))))
+Each R in RULES looks like:
+
+\(SELECTOR KEY VAL...)"
+  (reduce
+   (alexandria:curry #'concatenate 'string)
+   (mapcar
+    #'(lambda (form)
+        (format nil "~a {~%~a  }~%"
+                (first form)
+                (reduce
+                 #'(lambda (s1 s2)
+                     (format nil "~a~%~a" s1 s2))
+                 (loop for (key value) on (rest form) by #'cddr
+                       collect (format nil "~a~(~a~): ~a;"
+                                       (make-string 8 :initial-element #\Space)
+                                       (string key)
+                                       value)))))
+    rules)))
