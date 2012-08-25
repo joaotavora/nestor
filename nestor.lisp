@@ -42,8 +42,8 @@
                             (or #.*compile-file-pathname* *load-pathname*)))
 
 (defparameter *content-root* (merge-pathnames (pathname "content-demo/")
-                                                     (make-pathname :directory
-                                                                    (pathname-directory *nestor-lisp-file*))))
+                                              (make-pathname :directory
+                                                             (pathname-directory *nestor-lisp-file*))))
 
 (defun pages-directory ()
   (merge-pathnames (pathname "pages/")
