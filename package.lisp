@@ -19,13 +19,66 @@
 ;;; along with this program.  If not, see <http://www.gnu.org/licenses/>.
 (in-package :cl-user)
 
-(defpackage :nestor-view (:use :cl :cl-who)
-  (:export #:*layout*
-           #:find-view
-           #:css-dispatcher
+(defpackage :nestor-view (:use :cl)
+  (:export #:*theme*
+           #:*render-output*
            #:*javascripts*
-           #:*stylesheets*))
+           #:*stylesheets*
+           #:deftemplate
+           #:defstyle
+           #:find-view
+           #:find-template
+           #:css-dispatcher
 
-(defpackage :nestor (:use :cl
-                          #:nestor-view)
-            (:export #:start))
+           ;; cl-who helpers (move to :nestor-templates ???)
+           #:display-menu
+           #:format-date))
+
+(defpackage :nestor
+  (:use :cl #:nestor-view)
+  (:export #:start
+           ;; configuration
+           ;;
+           #:heading
+           #:subtitle
+           ;; bound during the render
+           ;;
+           #:*page*
+           ;; page class and subclasses
+           ;;
+           #:page
+           ;; page accessors
+           ;;
+           #:date
+           #:summary
+           #:description
+           #:read-more
+           #:categories
+           #:file
+           #:path
+           #:title
+           #:to-html
+           ;; category accessors
+           ;;
+           #:pages-about
+           #:articles-heading
+
+           ;; menu model
+           #:menu-items
+           ))
+
+(defpackage :nestor-default-theme
+  (:use :cl
+        #:nestor
+        #:nestor-view  :cl-who)
+  (:documentation "Holds mostly functions created with DEFTEMPLATE and DEFSTYLE")
+  (:export
+   :sidebar-categories
+   :sidebar))
+
+
+;;;; package renames
+;;;; ---------------
+
+(rename-package :cl-ppcre :cl-ppcre '(:re))
+(rename-package :cl-who :cl-who '(:who))

@@ -31,6 +31,7 @@ for diagnostic output.")
   :depends-on (:hunchentoot
                :cl-who
                :cl-markdown
+               :cl-fad
                :metabang-bind
                :cl-ppcre)
   :components ((:file "package")

@@ -1,0 +1,13 @@
+;; -*- lisp -*-
+(in-package :nestor-layout)
+
+(defstyle () (css-lite:css
+               (("#foo")
+                (:length "50px"
+                 :margin "50 px 30 px"
+                 :border "1px solid red")
+                (("li")
+                 (:width "50px"
+                  :float "left"
+                  :margin "50 px 30 px"
+                  :border "1px solid red")))))
