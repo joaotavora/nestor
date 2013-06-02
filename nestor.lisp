@@ -39,17 +39,9 @@
 
 ;;;; Pathname/config management
 ;;;;
-(defvar *nestor-lisp-file* (load-time-value
-                            (or #.*compile-file-pathname* *load-pathname*)))
+(defparameter *content-root* (cl-fad:pathname-as-directory (asdf:system-relative-pathname :nestor "content-demo/")))
 
-(defparameter *content-root* (merge-pathnames (pathname "content-demo/")
-                                              (make-pathname :directory
-                                                             (pathname-directory *nestor-lisp-file*))))
-
-(defun pages-directory ()
-  (merge-pathnames (pathname "pages/")
-                   *content-root*))
-
+(defun pages-directory () (cl-fad:pathname-as-directory (merge-pathnames "pages" *content-root*)))
 
 ;;;; Handling of page requests
 ;;;;
@@ -150,11 +142,11 @@
         (eval (cl-who::tree-to-commands forms bla))))))
 
 (defun calculate-page-pathname (uri type)
-  (metatilities:relative-pathname (pages-directory)
-                                  (pathname
-                                   (format nil "~a.~(~a~)"
-                                           uri
-                                           (string type)))))
+  (merge-pathnames (make-pathname :name (pathname-name uri)
+                                  :directory (cons :relative (cdr (pathname-directory uri)))
+                                  :type (string-downcase (symbol-name type)))
+                   (pages-directory)))
+
 (defvar *last-page* nil)
 (defun page-dispatcher (request)
   (loop for type in '(:mdown :who)
@@ -187,7 +179,6 @@
   "A package name specifying the theme")
 
 (defvar *render-output*)
-
 
 (defun css-dispatcher (request)
   (cl-ppcre:register-groups-bind (name) ("/css/([^ ]+)\\.css" (hunchentoot:request-uri request))
@@ -232,7 +223,7 @@
        (eval-when (:compile-toplevel :load-toplevel :execute)
          (export ',sym))
        (defun ,sym ,arglist ,doc
-         (cl-who:with-html-output (nestor::*render-output* nil :indent t)
+         (cl-who:with-html-output (nestor-view::*render-output* nil :indent t)
            ,@body)))))
 
 (defun find-view (name &key (test #'identity) (package *theme*))
@@ -302,17 +293,17 @@ Each R in RULES looks like:
 
 
 ;;;; debug hacks
-(in-package :nestor)
-(defvar *all-requests* nil)
-(defvar *last-error-request* nil)
-(defmethod hunchentoot:process-request :before (request)
-  (push request *all-requests*))
+;; (in-package :nestor)
+;; (defvar *all-requests* nil)
+;; (defvar *last-error-request* nil)
+;; (defmethod hunchentoot:process-request :before (request)
+;;   (push request *all-requests*))
 
-(defmethod hunchentoot:handle-request :around (acceptor request)
-  (multiple-value-bind (body error backtrace)
-      (catch 'handler-done
-        (call-next-method))
-    (when error
-      (break "what")
-      (setq *last-error-request* request))
-    (throw 'handler-done (values body error backtrace))))
+;; (defmethod hunchentoot:handle-request :around (acceptor request)
+;;   (multiple-value-bind (body error backtrace)
+;;       (catch 'handler-done
+;;         (call-next-method))
+;;     (when error
+;;       (break "what")
+;;       (setq *last-error-request* request))
+;;     (throw 'handler-done (values body error backtrace))))

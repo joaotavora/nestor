@@ -32,8 +32,11 @@ for diagnostic output.")
                :cl-who
                :cl-markdown
                :cl-fad
-               :metabang-bind
-               :cl-ppcre)
+               :cl-ppcre
+               ;; for testing
+               :stefil
+               :drakma)
   :components ((:file "package")
                (:file "nestor")
-               (:file "styles")))
+               (:file "default-theme")
+               (:file "nestor-tests")))
